@@ -3,11 +3,15 @@ package pkg
 import (
 	"bytes"
 	"fmt"
+	utility "github.com/nikkicoon/utility-go/pkg"
 	"slices"
 	"strconv"
+	"sync"
 )
 
 type ConsistentHashRing struct {
+	// Mutex for the hash ring
+	mutex sync.RWMutex
 	// Number of Labels per entry (vnodes per node)
 	Labels int
 	// Slice of Keys
@@ -18,6 +22,7 @@ type ConsistentHashRing struct {
 
 func NewConsistentHashRing(labels int) *ConsistentHashRing {
 	return &ConsistentHashRing{
+		mutex:  sync.RWMutex{},
 		Labels: labels,
 	}
 }
@@ -63,11 +68,13 @@ func (n Node) String() string {
 // Add adds a node given its name.
 // The given nodeName is hashed among the number of labels.
 func (c *ConsistentHashRing) Add(nodeName string, node Node) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	for i := 0; i < c.Labels; i++ {
-		hash := CalculateHash(nodeName + strconv.Itoa(i))
+		hash := utility.CalculateHashBin(nodeName + strconv.Itoa(i))
 		node.Hash = hash
 		c.Nodes = append(c.Nodes, node)
-		c.Keys = SortedInsertByte(c.Keys, hash)
+		c.Keys = utility.SortedInsertByte(c.Keys, hash)
 	}
 }
 
@@ -79,12 +86,14 @@ func (c *ConsistentHashRing) Add(nodeName string, node Node) {
 // If the Hashring is empty or any other case happens,
 // return an empty Node type.
 func (c *ConsistentHashRing) Get(keyname string) *Node {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	// if empty, return empty
 	if len(c.Nodes) == 0 {
 		return &Node{}
 	}
-	hash := CalculateHash(keyname)
-	idx, ok := binarySearchBytes(c.Keys, hash, 0, len(c.Keys)-1)
+	hash := utility.CalculateHashBin(keyname)
+	idx, ok := utility.BinarySearchBytes(c.Keys, hash, 0, len(c.Keys)-1)
 	if !ok {
 		//return &Node{}
 		idx = 0
@@ -108,8 +117,10 @@ func (c *ConsistentHashRing) Get(keyname string) *Node {
 
 // Delete deletes a node given its name.
 func (c *ConsistentHashRing) Delete(nodeName string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	for i := 0; i < c.Labels; i++ {
-		hash := CalculateHash(nodeName + strconv.Itoa(i))
+		hash := utility.CalculateHashBin(nodeName + strconv.Itoa(i))
 		// delete from c.Nodes where hash matches
 		for k, v := range c.Nodes {
 			if bytes.Equal(v.Hash, hash) {
