@@ -34,6 +34,7 @@ func TestConsistentHashRing_Get(t *testing.T) {
 }
 
 func TestConsistentHashRing_Add(t *testing.T) {
+	t.Parallel()
 	cr := pkg.NewConsistentHashRing(2000)
 	cr.Add("node0", pkg.NewNode("host0.domain.tld", "123.123.123.123", "0"))
 	cr.Add("node1", pkg.NewNode("host1.domain.tld", "123.123.123.123", "0"))
